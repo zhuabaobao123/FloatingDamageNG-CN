@@ -6,5 +6,5 @@
   "lateralDamping": 2.5,
   "spreadPattern": 0,
   "spawnAngle": 0,
-  "description": "Bursts outward then eases to a stop."
+  "description": "向外爆发式散射，然后逐渐停止。"
 }

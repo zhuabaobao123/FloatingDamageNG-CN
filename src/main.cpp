@@ -14,6 +14,7 @@
 #include "CombatLog.h"
 #include "DevBench.h"
 #include "Hooks.h"
+#include "I18n.h"
 #include "Renderer.h"
 #include "Settings.h"
 #include "UI.h"
@@ -28,6 +29,7 @@ namespace
 
 		switch (a_msg->type) {
 		case SKSE::MessagingInterface::kPostLoad:
+			FDNG::I18n::Load();
 			FDNG::Settings::GetSingleton()->Load();
 			break;
 		case SKSE::MessagingInterface::kPostPostLoad:

@@ -3,6 +3,8 @@
 
 #include "Settings.h"
 
+#include "I18n.h"
+
 #include <SimpleIni.h>
 #include <spdlog/spdlog.h>
 
@@ -33,7 +35,7 @@ namespace FDNG
 		{
 			// Skeleton head nodes are "NPC Head [Head]" on humanoids; most
 			// creature skeletons also carry "Head" in the node name.
-			a_settings.locationTags.push_back({ std::regex{ ".*head.*", std::regex::icase }, "HEADSHOT" });
+			a_settings.locationTags.push_back({ std::regex{ ".*head.*", std::regex::icase }, I18n::Get("_dll_patches.hit_location.headshot", "HEADSHOT") });
 		}
 	}
 

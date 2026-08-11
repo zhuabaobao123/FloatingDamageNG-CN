@@ -46,7 +46,9 @@ namespace FDNG::Fonts
 			if (const auto it = a_seen.find(a_path); it != a_seen.end()) {
 				return it->second;  // one ImFont per distinct path per atlas
 			}
-			ImFont* font = a_atlas->AddFontFromFileTTF(a_path.c_str(), 48.0f);
+			ImFontConfig cfg;
+			cfg.GlyphRanges = a_atlas->GetGlyphRangesChineseSimplifiedCommon();
+			ImFont* font = a_atlas->AddFontFromFileTTF(a_path.c_str(), 48.0f, &cfg);
 			a_seen[a_path] = font;
 			return font;
 		}

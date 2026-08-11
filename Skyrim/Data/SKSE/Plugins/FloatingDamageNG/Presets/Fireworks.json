@@ -6,5 +6,5 @@
   "lateralDamping": 3.5,
   "spreadPattern": 1,
   "spawnAngle": 144,
-  "description": "Stacked hits rotate into a diagonal spray."
+  "description": "连续命中时旋转散射，形成对角喷洒效果。"
 }

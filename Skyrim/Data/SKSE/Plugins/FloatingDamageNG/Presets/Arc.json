@@ -6,5 +6,5 @@
   "lateralDamping": 0,
   "spreadPattern": 0,
   "spawnAngle": 0,
-  "description": "Arcs up and out, then falls under gravity."
+  "description": "向外飞出弧线，然后在重力作用下回落。"
 }

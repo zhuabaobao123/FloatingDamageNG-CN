@@ -6,7 +6,7 @@
   "lateralDamping": 0,
   "spreadPattern": 0,
   "spawnAngle": 0,
-  "description": "Holds in place and fades (no movement).",
-  "source": "Inspired by Floating Damage display modes",
+  "description": "原地停留并渐隐消失（无移动）。",
+  "source": "灵感源自 Floating Damage 模组的显示模式",
   "url": "https://www.nexusmods.com/skyrimspecialedition/mods/14332"
 }

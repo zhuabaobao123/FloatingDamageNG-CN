@@ -1,29 +1,29 @@
-Motion-effect presets. Each .json file here appears in the preset picker
-(SKSE Menu Framework > Floating Damage NG > Numbers > Motion effect > Preset),
-alongside the compiled default (Float). Selecting one loads its motion into
-the live fields; you can then tune the sliders and re-save.
+运动效果预设。此文件夹中的每个 .json 文件都会出现在预设选择器中
+（SKSE Menu Framework > 浮动伤害 NG > 数值显示 > 运动效果 > 预设），
+与内置默认效果（Float/浮动）并列。选择某个预设后，其运动参数会加载到
+实时字段中，你可以继续调整滑块并重新保存。
 
-Float is the only compiled-in effect (the always-present default). Arc,
-Radial, and Fireworks ship here as loose files so you can see and edit how
-they are built - delete or change them freely; a reinstall restores them.
+Float（浮动）是唯一编译进 DLL 的内置效果（始终存在的默认项）。Arc（弧线）、
+Radial（径向）和 Fireworks（烟花）以独立文件形式提供，方便你查看和编辑
+它们的构建方式——可随意删除或修改；重装模组即可恢复。
 
-Freeze, Accelerate, Bound, and Drop approximate the classic Floating Damage
-display modes (its mode 0 "Default" is our Float). They are our physics
-take on those names, not exact copies - tweak to taste.
+Freeze（冻结）、Accelerate（加速）、Bound（弹跳）和 Drop（坠落）模拟了
+经典 Floating Damage 模组的显示模式（其模式 0"默认"即本模组的 Float）。
+这些是我们用物理引擎对同名效果的重新诠释，并非精确复制——可自行微调。
 
-Save a preset in-game: type a name in the "Preset name to save..." box and
-click Save preset (any name except "Float", which is reserved for the
-built-in). Share a preset by copying its .json to another install.
+在游戏中保存预设：在"要保存的预设名称..."框中输入名称，然后点击
+"保存预设"（除"Float"外的任何名称都可以，Float 为内置保留名称）。
+分享预设只需将其 .json 文件复制到另一台电脑的同一目录即可。
 
-Fields (see "Arc.json" / "Fireworks.json"):
-  name            display name in the picker
-  riseSpeed       upward velocity (game units/sec)
-  riseAccel       vertical acceleration; negative = gravity (arc/fireworks fall)
-  lateralSpeed    velocity along the launch direction
-  lateralDamping  0 = constant speed; higher = bursts out then eases to a stop
-  spreadPattern   0 alternate L/R, 1 rotate (fireworks), 2 diagonal alternate
-  spawnAngle      degrees rotated per hit (rotate) or launch tilt (diagonal)
-  description     optional: shown as a tooltip when you hover the preset
-  source          optional: attribution/credit, also shown in the tooltip
-  url             optional: an http/https link, shown as a clickable link on
-                  the panel (other schemes are ignored for safety)
+字段说明（参见 Arc.json / Fireworks.json）：
+  name            预设选择器中显示的名称
+  riseSpeed       上升速度（游戏单位/秒）
+  riseAccel       垂直加速度；负值 = 重力（弧线/烟花下落效果）
+  lateralSpeed    沿发射方向的速度
+  lateralDamping  0 = 恒定速度；数值越高 = 爆发式飞出后缓慢停止
+  spreadPattern   0 左右交替、1 旋转（烟花）、2 对角交替
+  spawnAngle      每次命中的旋转角度（旋转模式）或发射倾斜角（对角模式）
+  description     可选：悬停预设时显示的提示文字
+  source          可选：署名/致谢，同样显示在提示中
+  url             可选：http/https 链接，在面板上显示为可点击链接
+                  （其他协议出于安全考虑会被忽略）

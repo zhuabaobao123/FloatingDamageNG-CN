@@ -3,6 +3,7 @@
 
 #include "NumberManager.h"
 
+#include "I18n.h"
 #include "Presets.h"
 #include "Settings.h"
 
@@ -71,18 +72,18 @@ namespace FDNG
 		const char* prefix = "";
 		char locPrefix[20]{};
 		if (a_number.kind == DamageKind::kHealing) {
-			prefix = "+";
+			prefix = I18n::Get("_dll_patches.number_prefixes.heal", "+");
 		} else if (a_number.location[0] != '\0') {
 			std::snprintf(locPrefix, sizeof(locPrefix), "%s ", a_number.location);
 			prefix = locPrefix;
 		} else if (a_number.flags.critical) {
-			prefix = "CRIT ";
+			prefix = I18n::Get("_dll_patches.number_prefixes.crit", "CRIT ");
 		} else if (a_number.flags.sneak) {
-			prefix = "SNEAK ";
+			prefix = I18n::Get("_dll_patches.number_prefixes.sneak", "SNEAK ");
 		} else if (a_number.flags.bash) {
-			prefix = "BASH ";
+			prefix = I18n::Get("_dll_patches.number_prefixes.bash", "BASH ");
 		} else if (a_number.flags.blocked) {
-			prefix = "BLOCK ";
+			prefix = I18n::Get("_dll_patches.number_prefixes.block", "BLOCK ");
 		}
 		std::snprintf(a_number.text, sizeof(a_number.text), "%s%s", prefix, num);
 
@@ -90,17 +91,20 @@ namespace FDNG
 		const auto settings = Settings::GetSingleton();
 		const bool showMit = settings->showMitigation && a_number.mitigated >= 1.0f;
 		const bool showAmp = a_number.ampMult > 0.0f;
-		const char* mitWord = a_number.mitLabel == MitigationLabel::kBlocked ? "blocked" :
-		                      a_number.mitLabel == MitigationLabel::kArmor   ? "armor" :
-		                                                                       "resisted";
+		const char* mitWord = a_number.mitLabel == MitigationLabel::kBlocked ? I18n::Get("_dll_patches.mitigation_labels.blocked", "blocked") :
+		                      a_number.mitLabel == MitigationLabel::kArmor   ? I18n::Get("_dll_patches.mitigation_labels.armor", "armor") :
+		                                                                       I18n::Get("_dll_patches.mitigation_labels.resisted", "resisted");
 		if (showMit && showAmp) {
-			std::snprintf(a_number.subtext, sizeof(a_number.subtext), "(-%d %s) x%.1f",
+			std::snprintf(a_number.subtext, sizeof(a_number.subtext),
+				I18n::Get("_dll_patches.subtext.mit_amp", "(-%d %s) x%.1f"),
 				static_cast<int>(std::lround(a_number.mitigated)), mitWord, a_number.ampMult);
 		} else if (showMit) {
-			std::snprintf(a_number.subtext, sizeof(a_number.subtext), "(-%d %s)",
+			std::snprintf(a_number.subtext, sizeof(a_number.subtext),
+				I18n::Get("_dll_patches.subtext.mitigation", "(-%d %s)"),
 				static_cast<int>(std::lround(a_number.mitigated)), mitWord);
 		} else if (showAmp) {
-			std::snprintf(a_number.subtext, sizeof(a_number.subtext), "x%.1f", a_number.ampMult);
+			std::snprintf(a_number.subtext, sizeof(a_number.subtext),
+				I18n::Get("_dll_patches.subtext.amplification", "x%.1f"), a_number.ampMult);
 		}
 	}
 
@@ -310,7 +314,7 @@ namespace FDNG
 			{ 42.0f, DamageKind::kPhysical, false, OriginTier::kPlayer, "" },
 			{ 88.0f, DamageKind::kFire, true, OriginTier::kPlayer, "" },
 			{ 25.0f, DamageKind::kFrost, false, OriginTier::kPlayerVictim, "" },
-			{ 60.0f, DamageKind::kShock, false, OriginTier::kPlayer, "HEADSHOT" },
+			{ 60.0f, DamageKind::kShock, false, OriginTier::kPlayer, "HEADSHOT" },  // preview sample — I18n not yet loaded at static init
 			{ 30.0f, DamageKind::kHealing, false, OriginTier::kPlayer, "" },
 		};
 		static std::size_t idx = 0;

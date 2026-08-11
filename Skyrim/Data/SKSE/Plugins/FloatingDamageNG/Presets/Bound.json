@@ -6,7 +6,7 @@
   "lateralDamping": 0,
   "spreadPattern": 0,
   "spawnAngle": 0,
-  "description": "Springs up, then arcs back down.",
-  "source": "Inspired by Floating Damage display modes",
+  "description": "猛然弹起，随后划出弧线回落。",
+  "source": "灵感源自 Floating Damage 模组的显示模式",
   "url": "https://www.nexusmods.com/skyrimspecialedition/mods/14332"
 }

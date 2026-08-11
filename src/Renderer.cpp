@@ -5,6 +5,7 @@
 
 #include "CombatLog.h"
 #include "Fonts.h"
+#include "I18n.h"
 #include "ImGuiVRHelperClientSDK.h"
 #include "NumberManager.h"
 #include "Settings.h"
@@ -79,8 +80,15 @@ namespace FDNG::Renderer
 			if (ImGui::Begin("##FDNGDPS", nullptr,
 					ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
 						ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
-				ImGui::Text("%.0f dmg  %.1fs", stats.playerDamage, stats.sessionSeconds);
-				ImGui::Text("DPS %.1f real / %.1f active", stats.realDPS, stats.activeDPS);
+				char dpsBuf1[64], dpsBuf2[64];
+				snprintf(dpsBuf1, sizeof(dpsBuf1),
+					I18n::Get("ui.stats.dps_overlay_line1", "%.0f dmg  %.1fs"),
+					stats.playerDamage, stats.sessionSeconds);
+				ImGui::Text("%s", dpsBuf1);
+				snprintf(dpsBuf2, sizeof(dpsBuf2),
+					I18n::Get("ui.stats.dps_overlay_line2", "DPS %.1f real / %.1f active"),
+					stats.realDPS, stats.activeDPS);
+				ImGui::Text("%s", dpsBuf2);
 			}
 			ImGui::End();
 			ImGui::PopStyleVar();

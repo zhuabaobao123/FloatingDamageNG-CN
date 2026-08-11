@@ -5,6 +5,7 @@
 
 #include "DevBench.h"
 #include "Export.h"
+#include "I18n.h"
 #include "Settings.h"
 
 #include <fstream>
@@ -48,23 +49,23 @@ namespace FDNG
 		{
 			switch (a_kind) {
 			case DamageKind::kFire:
-				return "fire";
+				return I18n::Get("Fire", "fire");
 			case DamageKind::kFrost:
-				return "frost";
+				return I18n::Get("Frost", "frost");
 			case DamageKind::kShock:
-				return "shock";
+				return I18n::Get("Shock", "shock");
 			case DamageKind::kPoison:
-				return "poison";
+				return I18n::Get("Poison", "poison");
 			case DamageKind::kMagic:
-				return "magic";
+				return I18n::Get("Magic", "magic");
 			case DamageKind::kHealing:
-				return "healing";
+				return I18n::Get("Healing", "healing");
 			case DamageKind::kMagickaDrain:
-				return "magicka drain";
+				return I18n::Get("Magicka drain", "magicka drain");
 			case DamageKind::kStaminaDrain:
-				return "stamina drain";
+				return I18n::Get("Stamina drain", "stamina drain");
 			default:
-				return "physical";
+				return I18n::Get("Physical", "physical");
 			}
 		}
 
@@ -78,7 +79,7 @@ namespace FDNG
 					}
 				}
 			}
-			return a_kind == DamageKind::kPhysical ? "Unarmed/other" : KindName(a_kind);
+			return a_kind == DamageKind::kPhysical ? I18n::Get("_dll_patches.damage_kind.unarmed", "Unarmed/other") : KindName(a_kind);
 		}
 
 		std::string ActorNameByID(RE::FormID a_id)
@@ -383,10 +384,12 @@ namespace FDNG
 				continue;
 			}
 			a_combatant.killedByID = ev.attackerID;
-			a_combatant.deathRecap.push_back(std::format("{:.1f}s before death: {:.0f} {} from {} ({})",
-				std::max(diedAt - ev.sessionTime, 0.0f), ev.amount, KindName(ev.kind),
-				ev.attackerID ? ActorNameByID(ev.attackerID) : "the world",
-				SourceName(ev.sourceID, ev.kind)));
+			const auto recapAttacker = ev.attackerID ? ActorNameByID(ev.attackerID) : std::string{ I18n::Get("_dll_patches.death_recap.the_world", "the world") };
+			char recapBuf[256];
+			snprintf(recapBuf, sizeof(recapBuf),
+				I18n::Get("_dll_patches.death_recap.entry", "%.1fs before death: %.0f %s from %s (%s)"),
+				std::max(diedAt - ev.sessionTime, 0.0f), ev.amount, KindName(ev.kind), recapAttacker.c_str(), SourceName(ev.sourceID, ev.kind).c_str());
+			a_combatant.deathRecap.push_back(recapBuf);
 			if (a_combatant.deathRecap.size() > kRecapMaxLines) {
 				a_combatant.deathRecap.erase(a_combatant.deathRecap.begin());
 			}
