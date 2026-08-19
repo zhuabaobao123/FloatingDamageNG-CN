@@ -2,7 +2,7 @@
   "_meta": {
     "mod": "Floating Damage NG",
     "mod_cn": "浮动伤害 NG",
-    "version": "1.5.0",
+    "version": "1.5.1",
     "language": "zh-CN",
     "author": "alandtse",
     "translator": "汉化版",
@@ -134,7 +134,7 @@
       "link_optional": "链接（http/https，可选）",
       "save_preset": "保存预设",
       "reload_presets": "重新加载预设",
-      "saved_msg": "已保存 '{0}'。",
+      "saved_msg": "已保存 '{}'。",
       "save_failed_msg": "保存失败 - 请使用唯一名称（字母、数字、空格、- 或 _；不能与内置名称冲突）。",
       "per_type_effects": "按类型特效",
       "damage_type_col": "伤害类型",

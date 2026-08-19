@@ -793,14 +793,14 @@ namespace FDNG::UI
 				char rightBuf[128];
 				const float pct = 100.0f * frac;
 				snprintf(rightBuf, sizeof(rightBuf),
-					I18n::Get("ui.stats.damage_bar", "%.0f  (%.0f%%)  %d hit%s"),
-					r.total, pct, r.hits, r.hits == 1 ? "" : "s");
+					I18n::Get("ui.stats.damage_bar", "%.0f  (%.0f%%)  %d hits"),
+					r.total, pct, r.hits);
 				std::string right = rightBuf;
 				if (r.crits > 0) {
 					char critBuf[32];
 					snprintf(critBuf, sizeof(critBuf),
-						I18n::Get("ui.stats.crit_bar", ", %d crit%s"),
-						r.crits, r.crits == 1 ? "" : "s");
+						I18n::Get("ui.stats.crit_bar", ", %d crits"),
+						r.crits);
 					right += critBuf;
 				}
 				if (a_showMitigated && r.mitigated > 0.0f && r.total + r.mitigated > 0.0f) {

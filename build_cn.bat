@@ -1,8 +1,8 @@
 @echo off
-title Floating Damage NG CN Build 1.50
+title Floating Damage NG CN Build 1.51
 
 echo ==========================================
-echo Floating Damage NG 1.50 - Chinese Build
+echo Floating Damage NG 1.51 - Chinese Build
 echo ==========================================
 echo.
 
@@ -54,17 +54,14 @@ echo ==========================================
 echo.
 
 set DESKTOP_DIR=%USERPROFILE%\Desktop\SKSE\Plugins
-if exist "%DESKTOP_DIR%" (
-    echo Auto-copying to %DESKTOP_DIR%...
-    copy /Y "build\windows\x64\releasedbg\FloatingDamageNG.dll" "%DESKTOP_DIR%\" >nul && echo   DLL copied
-    copy /Y "build\windows\x64\releasedbg\FloatingDamageNG.pdb" "%DESKTOP_DIR%\" >nul && echo   PDB copied
-    copy /Y "Skyrim\Data\SKSE\Plugins\FloatingDamageNG.json" "%DESKTOP_DIR%\" >nul && echo   JSON copied
-    echo Done.
-) else (
-    echo Desktop SKSE folder not found, copy manually:
-    echo   DLL: build\windows\x64\releasedbg\FloatingDamageNG.dll
-    echo   PDB: build\windows\x64\releasedbg\FloatingDamageNG.pdb
-    echo   JSON: Skyrim\Data\SKSE\Plugins\FloatingDamageNG.json
-)
+echo Auto-copying to %DESKTOP_DIR%...
+if not exist "%DESKTOP_DIR%" mkdir "%DESKTOP_DIR%" >nul 2>&1
+copy /Y "build\windows\x64\releasedbg\FloatingDamageNG.dll" "%DESKTOP_DIR%\" >nul && echo   DLL copied
+copy /Y "build\windows\x64\releasedbg\FloatingDamageNG.pdb" "%DESKTOP_DIR%\" >nul && echo   PDB copied
+copy /Y "Skyrim\Data\SKSE\Plugins\FloatingDamageNG.json" "%DESKTOP_DIR%\" >nul && echo   JSON copied
+copy /Y "Skyrim\Data\SKSE\Plugins\FloatingDamageNG.ini" "%DESKTOP_DIR%\" >nul && echo   INI copied
+xcopy /E /I /Y "Skyrim\Data\SKSE\Plugins\FloatingDamageNG\Fonts" "%DESKTOP_DIR%\FloatingDamageNG\Fonts" >nul && echo   Fonts copied
+xcopy /E /I /Y "Skyrim\Data\SKSE\Plugins\FloatingDamageNG\Presets" "%DESKTOP_DIR%\FloatingDamageNG\Presets" >nul && echo   Presets copied
+echo Done.
 
 pause

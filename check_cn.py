@@ -20,7 +20,7 @@ if sys.platform == "win32":
 # 自动检测：优先用脚本所在目录，否则用硬编码路径
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 # 源码项目根目录（编译环境）
-SRC_DIR = "E:/FloatingDamageNG-main1.50"
+SRC_DIR = _script_dir if os.path.isdir(os.path.join(_script_dir, "src")) else "E:/FloatingDamageNG-main1.50"
 # JSON 翻译文件路径
 JSON_PATH = os.path.join(SRC_DIR, "Skyrim", "Data", "SKSE", "Plugins", "FloatingDamageNG.json")
 SRC_GLOB = os.path.join(SRC_DIR, "src", "*.cpp")
@@ -113,7 +113,7 @@ def check_keys():
         for k in extra:
             leaf = k.split(".")[-1]
             found = False
-            for fpath in glob.glob(SRC_GLOB):
+            for fpath in glob.glob(SRC_GLOB) + glob.glob(SRC_H_GLOB):
                 with open(fpath, "r", encoding="utf-8") as f:
                     if leaf in f.read():
                         found = True
