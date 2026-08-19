@@ -9,7 +9,7 @@
 # dispatch with dry_run=false (release.yaml flips it via the NEXUS_AUTO_UPLOAD repo
 # variable).
 #
-# Nexus page: https://www.nexusmods.com/games/skyrimspecialedition/mods/183466
+# Nexus page: https://www.nexusmods.com/games/skyrimspecialedition/mods/184159
 name: "Nexus: Upload Release"
 
 on:

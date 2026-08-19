@@ -11,6 +11,10 @@ namespace FDNG
 {
 	namespace
 	{
+		// Windows never maps the first 64 KiB of a process's address space, so
+		// any real Actor* is guaranteed to be >= this.
+		constexpr std::uintptr_t kMinValidUserAddress = 0x10000;
+
 		RE::NiPoint3 GetAnchorPos(RE::Actor* a_actor)
 		{
 			if (const auto middle = a_actor->GetMiddleHighProcess(); middle && middle->headNode) {
@@ -253,6 +257,17 @@ namespace FDNG
 	{
 		if (!a_victim || a_damage >= 0.0f) {
 			return;
+		}
+		// a_attacker comes from whoever called into this hooked vtable slot,
+		// not just the engine - treat an implausible pointer as null instead
+		// of dereferencing it.
+		if (a_attacker && reinterpret_cast<std::uintptr_t>(a_attacker) < kMinValidUserAddress) {
+			static thread_local bool warned = false;
+			if (!warned) {
+				warned = true;
+				logger::warn("OnHealthDamage: implausible attacker pointer {:p} ignored (caller bug?)", static_cast<void*>(a_attacker));
+			}
+			a_attacker = nullptr;
 		}
 		RawEvent raw;
 		raw.source = RawEvent::Source::kWeaponHit;
@@ -551,6 +566,12 @@ namespace FDNG
 
 		CombatLog::GetSingleton()->RecordHeal(a_target, emit);
 
+		// Must stay after RecordHeal: analytics records every application
+		// regardless of display filters.
+		if (a_target->IsDead()) {
+			return;
+		}
+
 		if (!settings->enableFloatingDamage) {
 			return;
 		}
@@ -597,6 +618,12 @@ namespace FDNG
 
 		// Analytics sees every application, independent of the display filters.
 		CombatLog::GetSingleton()->RecordDamage(a_attacker, a_victim, a_amount, a_kind, a_flags, a_mitigated, a_sourceID);
+
+		// Must stay after RecordDamage: analytics records every application
+		// regardless of display filters.
+		if (a_victim->IsDead()) {
+			return;
+		}
 
 		DamageEvent event;
 		event.victimID = a_victim->GetFormID();
