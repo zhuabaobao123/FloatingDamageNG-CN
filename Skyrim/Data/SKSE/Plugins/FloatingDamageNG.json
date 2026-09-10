@@ -2,7 +2,7 @@
   "_meta": {
     "mod": "Floating Damage NG",
     "mod_cn": "浮动伤害 NG",
-    "version": "1.5.1",
+    "version": "1.7.0",
     "language": "zh-CN",
     "author": "alandtse",
     "translator": "汉化版",
@@ -14,7 +14,8 @@
       "crit": "暴击 ",
       "sneak": "潜行 ",
       "bash": "盾击 ",
-      "block": "格挡 "
+      "block": "格挡 ",
+      "timed_bash": "定时盾击 "
     },
     "mitigation_labels": {
       "blocked": "格挡",
@@ -35,6 +36,9 @@
     },
     "damage_kind": {
       "unarmed": "徒手/其他"
+    },
+    "perfect_block": {
+      "text": "完美格挡"
     }
   },
   "Physical": "物理",

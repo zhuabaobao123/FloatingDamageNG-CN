@@ -1,8 +1,8 @@
 @echo off
-title Floating Damage NG CN Build 1.51
+title Floating Damage NG CN Build 1.70
 
 echo ==========================================
-echo Floating Damage NG 1.51 - Chinese Build
+echo Floating Damage NG 1.70 - Chinese Build
 echo ==========================================
 echo.
 
