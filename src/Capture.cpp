@@ -188,7 +188,10 @@ namespace FDNG
 		pending.flags.blocked = a_hitData.flags.any(RE::HitData::Flag::kBlocked);
 		pending.flags.sneak = a_hitData.flags.any(RE::HitData::Flag::kSneakAttack);
 		pending.flags.powerAttack = a_hitData.flags.any(RE::HitData::Flag::kPowerAttack);
-		pending.flags.bash = a_hitData.flags.any(RE::HitData::Flag::kBash, RE::HitData::Flag::kTimedBash);
+		pending.flags.bash = a_hitData.flags.any(RE::HitData::Flag::kBash);
+		pending.flags.timedBash = a_hitData.flags.any(RE::HitData::Flag::kTimedBash);
+		pending.flags.perfectBlock = a_hitData.flags.any(RE::HitData::Flag::kBlockWithWeapon) &&
+		                             a_hitData.totalDamage < 1.0f;
 
 		// totalDamage is post-block; reconstruct the blocked portion so the
 		// mitigation subtext and analytics carry the true amount.
@@ -224,8 +227,22 @@ namespace FDNG
 			}
 		}
 
-		std::scoped_lock lk{ _lock };
-		_pendingHits[target->GetFormID()] = pending;
+		{
+			std::scoped_lock lk{ _lock };
+			_pendingHits[target->GetFormID()] = pending;
+		}
+
+		if (pending.flags.perfectBlock) {
+			// HandleHealthDamage never fires for this hit; synthesize the event here instead.
+			RawEvent raw;
+			raw.source = RawEvent::Source::kWeaponHit;
+			raw.victimID = target->GetFormID();
+			if (const auto aggressor = a_hitData.aggressor.get()) {
+				raw.attackerID = aggressor->GetFormID();
+			}
+			raw.amount = 0.0f;
+			QueueRaw(raw);
+		}
 	}
 
 	// ---- Hook entries: queue POD only (any thread) -------------------------
@@ -388,9 +405,6 @@ namespace FDNG
 	void Capture::ProcessWeaponHit(const RawEvent& a_raw, RE::Actor* a_victim)
 	{
 		const auto amount = -a_raw.amount;
-		if (amount < Settings::GetSingleton()->minDamageToShow) {
-			return;
-		}
 
 		// The pending HitData contributes crit/block/sneak/bash flags,
 		// mitigation, weapon identity, hit position, and the amplification
@@ -422,6 +436,16 @@ namespace FDNG
 				hitPos = it->second.hitPos;
 				_pendingHits.erase(it);
 			}
+		}
+
+		if (flags.perfectBlock) {
+			const auto attacker = a_raw.attackerID ? RE::TESForm::LookupByID<RE::Actor>(a_raw.attackerID) : nullptr;
+			EmitDamage(a_victim, attacker, 0.0f, DamageKind::kPhysical, flags, 0.0f, 0.0f, nullptr, MitigationLabel::kBlocked, weaponID);
+			return;
+		}
+
+		if (amount < Settings::GetSingleton()->minDamageToShow) {
+			return;
 		}
 
 		// Locational tag for ranged hits: nearest skeleton node to the

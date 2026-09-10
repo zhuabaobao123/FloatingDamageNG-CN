@@ -66,6 +66,12 @@ namespace FDNG
 
 	void NumberManager::BuildText(Number& a_number) const
 	{
+		if (a_number.flags.perfectBlock) {
+			std::snprintf(a_number.text, sizeof(a_number.text), "%s", I18n::Get("_dll_patches.perfect_block.text", "PERFECT BLOCK"));
+			a_number.subtext[0] = '\0';
+			return;
+		}
+
 		const auto rounded = std::max(1, static_cast<int>(std::lround(a_number.amount)));
 		char num[16]{};
 		FormatMagnitude(num, sizeof(num), rounded, Settings::GetSingleton()->abbreviateNumbers);
@@ -80,6 +86,8 @@ namespace FDNG
 			prefix = I18n::Get("_dll_patches.number_prefixes.crit", "CRIT ");
 		} else if (a_number.flags.sneak) {
 			prefix = I18n::Get("_dll_patches.number_prefixes.sneak", "SNEAK ");
+		} else if (a_number.flags.timedBash) {
+			prefix = I18n::Get("_dll_patches.number_prefixes.timed_bash", "TIMED BASH ");
 		} else if (a_number.flags.bash) {
 			prefix = I18n::Get("_dll_patches.number_prefixes.bash", "BASH ");
 		} else if (a_number.flags.blocked) {
@@ -141,6 +149,7 @@ namespace FDNG
 				// hitting the player's target folded into the player's number.
 				if (n.kind == a_event.kind && n.origin == a_event.origin &&
 					!n.flags.critical && !a_event.flags.critical &&
+					!n.flags.perfectBlock && !a_event.flags.perfectBlock &&
 					n.location[0] == '\0' && a_event.location[0] == '\0' &&
 					n.age < mergeWindow) {
 					n.amount += a_event.amount;

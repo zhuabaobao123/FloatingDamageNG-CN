@@ -33,6 +33,8 @@ namespace FDNG
 		bool sneak{ false };
 		bool powerAttack{ false };
 		bool bash{ false };
+		bool timedBash{ false };     // kTimedBash - a well-timed bash, distinct from a plain kBash
+		bool perfectBlock{ false };  // kBlockWithWeapon with ~0 damage through - a full negation
 	};
 
 	// Word used for the mitigation subtext — mitigation has different causes.
