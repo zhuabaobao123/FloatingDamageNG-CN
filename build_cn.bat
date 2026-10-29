@@ -17,19 +17,19 @@ echo [OK] VS 2026 ready
 echo.
 
 echo [2/3] Clearing cache...
-cd /d E:\FloatingDamageNG-main1.50
+cd /d E:\FloatingDamageNG-main1.70
 
-if not exist C:\xmake-cache mkdir C:\xmake-cache
-set XMAKE_GLOBALDIR=C:\xmake-data
-set XMAKE_PKG_CACHEDIR=C:\xmake-cache
+if not exist E:\fdng-build-env\xmake-cache mkdir E:\fdng-build-env\xmake-cache
+set XMAKE_GLOBALDIR=E:\fdng-build-env\xmake-data
+set XMAKE_PKG_CACHEDIR=E:\fdng-build-env\xmake-cache
 
 echo [3/3] Building (first time ~3-5 min)...
 echo.
 
-C:\xmake-bin\xmake.exe f -c -p windows --toolchain=msvc --vs=2026 -y
+E:\xmake\xmake.exe f -c -p windows --toolchain=msvc --vs=2026 -y
 if errorlevel 1 (
     echo [WARN] Config attempt 1 failed, retrying...
-    C:\xmake-bin\xmake.exe f -c -p windows --toolchain=msvc -y
+    E:\xmake\xmake.exe f -c -p windows --toolchain=msvc -y
     if errorlevel 1 (
         echo [ERROR] Configure failed!
         pause
@@ -37,7 +37,7 @@ if errorlevel 1 (
     )
 )
 
-C:\xmake-bin\xmake.exe build -y
+E:\xmake\xmake.exe build -y
 if errorlevel 1 (
     echo.
     echo ==========================================
