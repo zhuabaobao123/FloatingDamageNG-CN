@@ -1,8 +1,8 @@
 @echo off
-title Floating Damage NG CN Build 1.70
+title Floating Damage NG CN Build 1.80
 
 echo ==========================================
-echo Floating Damage NG 1.70 - Chinese Build
+echo Floating Damage NG 1.80 - Chinese Build
 echo ==========================================
 echo.
 
@@ -17,7 +17,7 @@ echo [OK] VS 2026 ready
 echo.
 
 echo [2/3] Clearing cache...
-cd /d E:\FloatingDamageNG-main1.70
+cd /d E:\FloatingDamageNG
 
 if not exist E:\fdng-build-env\xmake-cache mkdir E:\fdng-build-env\xmake-cache
 set XMAKE_GLOBALDIR=E:\fdng-build-env\xmake-data

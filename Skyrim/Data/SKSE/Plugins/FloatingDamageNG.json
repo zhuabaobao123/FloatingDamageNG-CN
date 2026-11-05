@@ -2,7 +2,7 @@
   "_meta": {
     "mod": "Floating Damage NG",
     "mod_cn": "浮动伤害 NG",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "language": "zh-CN",
     "author": "alandtse",
     "translator": "汉化版",
@@ -39,6 +39,9 @@
     },
     "perfect_block": {
       "text": "完美格挡"
+    },
+    "evade": {
+      "text": "闪避"
     }
   },
   "Physical": "物理",
@@ -59,6 +62,16 @@
   "Marker: damage you take": "标记：受到的伤害",
   "Marker: follower damage": "标记：随从伤害",
   "Marker: NPC fights": "标记：NPC 战斗",
+  "Evade": "闪避",
+  "Extra: crit bonus": "额外：暴击加成",
+  "Extra: sneak bonus": "额外：潜行加成",
+  "Extra: reflected": "额外：反伤",
+  "Crit bonus": "暴击加成",
+  "Sneak attack bonus": "潜行攻击加成",
+  "Reflected damage": "反伤伤害",
+  "crit": "暴击",
+  "sneak": "潜行",
+  "reflected": "反伤",
   "mcm": {
     "numbers": "数值显示",
     "analytics_debug": "分析与调试",
@@ -159,7 +172,15 @@
       "style_box": "方框",
       "style_none": "无（隐藏来源）",
       "marker_thickness": "标记粗细",
-      "enable_floating_damage": "启用浮动伤害数字"
+      "enable_floating_damage": "启用浮动伤害数字",
+      "show_evade": "闪避时显示\"Evade\"",
+      "extra_off": "关闭",
+      "extra_inline": "数字下方",
+      "extra_separate": "单独数字",
+      "damage_over_time": "持续伤害",
+      "dot_per_tick": "每次结算一个数字",
+      "dot_summed": "持续累计",
+      "tick_interval": "结算间隔 (s)"
     },
     "tips": {
       "console_to_target": "打开控制台并点击 NPC（或输入 'prid <FormID>'）来指定目标；否则默认以你自己为目标。",
@@ -207,7 +228,17 @@
       "devbench": "向 devbench 开发工具注册 floatingdamage.stats 工具，在其本地端口暴露统计数据。用于开发工具；否则请关闭。",
       "debug_log": "将每个事件的捕获追踪写入 FloatingDamageNG.log。用于 Bug 报告。",
       "delta_audit": "每秒对比每个战斗者的实际血量变化与捕获事件，在日志中警告模组遗漏的伤害。",
-      "enable_floating_damage": "总开关 - 关闭后无论下方单项设置如何，都会隐藏所有数字。战斗日志 / DPS 追踪不受影响。"
+      "enable_floating_damage": "总开关 - 关闭后无论下方单项设置如何，都会隐藏所有数字。战斗日志 / DPS 追踪不受影响。",
+      "show_evade": "当你的闪避模组无敌帧抵消一次近战或投射物攻击时显示\"闪避\"。需要重启游戏生效。",
+      "extra_crit": "暴击额外造成的固定伤害：在数字下方显示\"12 暴击\"，或单独显示一个数字。",
+      "extra_sneak": "潜行攻击倍率额外造成的伤害：在数字下方显示\"30 潜行\"，或单独显示一个数字。",
+      "extra_reflected": "目标的反弹伤害将受到的近战伤害返还给攻击者：在数字下方显示\"12 反伤\"，或单独显示一个数字。",
+      "dot_display": "燃烧、中毒等持续效果：按结算间隔每次显示一个数字，或显示一个不断增长的数字。",
+      "tick_interval": "每次数字显示覆盖多长的持续伤害效果。",
+      "hud_top_rows": "按造成伤害列出多少名参战者。0 表示隐藏列表。",
+      "hud_recap_hold": "战斗结束后面板变为回顾，保持完全可见这么久，然后淡出。",
+      "hud_font_scale": "缩放面板文字。使用你选择的默认伤害字体。",
+      "hud_color_stats": "为受到伤害、治疗和击杀着色，并按你/随从/敌人为伤害输出者着色。"
     },
     "analytics": {
       "analytics": "分析",
@@ -224,7 +255,18 @@
       "devbench_not_detected": "未检测到 devbench 主机 - 请安装 devbench SKSE 插件。",
       "advanced": "高级",
       "debug_log": "调试日志",
-      "delta_audit": "增量审计"
+      "delta_audit": "增量审计",
+      "hud_show_taken": "  显示受到伤害",
+      "hud_show_hits": "  显示命中 / 暴击率 / 最高伤害",
+      "hud_top_rows": "  伤害输出排行",
+      "hud_recap_hold": "  回顾停留 (s)",
+      "hud_corner": "  屏幕角落",
+      "hud_corner_top_right": "右上",
+      "hud_corner_top_left": "左上",
+      "hud_corner_bottom_right": "右下",
+      "hud_corner_bottom_left": "左下",
+      "hud_font_scale": "  文字大小",
+      "hud_color_stats": "  统计着色"
     },
     "stats": {
       "combatant": "参战者",
@@ -254,11 +296,21 @@
       "session_header": "#%d - %s @ %s - %.1fs, %.0f 伤害###fdng_session%d",
       "player_dps": "玩家 DPS %.1f 实际 / %.1f 活跃",
       "player_dps_peak": "玩家 DPS, 峰值 %.0f",
-      "dps_overlay_line1": "%.0f 伤害  %.1fs",
-      "dps_overlay_line2": "DPS %.1f 实际 / %.1f 活跃",
       "damage_bar": "%.0f  (%.0f%%)  %d 次命中",
       "crit_bar": ", %d 暴击",
       "resisted_bar": "  [%.0f%% 抵抗]"
+    },
+    "hud": {
+      "combat_recap": "战斗回顾",
+      "damage": "伤害",
+      "dps": "DPS",
+      "hits": "命中",
+      "taken": "受到",
+      "healed": "治疗",
+      "kills": "击杀",
+      "damage_value": "%.0f，用时 %.1fs",
+      "dps_value": "%.1f 实际 / %.1f 活跃",
+      "hits_value": "%d 次命中  %.0f%% 暴击  最高 %.0f"
     }
   }
 }
