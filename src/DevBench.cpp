@@ -3,6 +3,7 @@
 
 #include "DevBench.h"
 
+#include "Capture.h"
 #include "Export.h"
 
 #include "Settings.h"
@@ -50,6 +51,39 @@ namespace FDNG::DevBench
 				}
 				result["sessions"] = std::move(sessions);
 			}
+			if (action == "trace") {
+				auto trace = nlohmann::json::array();
+				for (const auto& e : Capture::GetSingleton()->GetTrace()) {
+					nlohmann::json j = {
+						{ "t", e.seconds },
+						{ "type", e.type == Capture::TraceEntry::Type::kHit ? "hit" : "raw" },
+						{ "victim", e.victimID },
+						{ "attacker", e.attackerID },
+					};
+					if (e.type == Capture::TraceEntry::Type::kHit) {
+						j["totalDamage"] = e.totalDamage;
+						j["physicalDamage"] = e.physicalDamage;
+						j["knockback"] = e.knockback;
+						j["percentBlocked"] = e.percentBlocked;
+						j["resistedPhysical"] = e.resistedPhysical;
+						j["resistedTyped"] = e.resistedTyped;
+						j["stagger"] = e.stagger;
+						j["weapon"] = e.weaponID;
+						j["hitFlags"] = e.hitFlags;
+						j["reflected"] = e.reflected;
+						j["sneakMult"] = e.sneakMult;
+					} else {
+						j["source"] = e.source;
+						j["av"] = e.av;
+						j["mgef"] = e.mgefID;
+						j["amount"] = e.amount;
+						j["deadAtQueue"] = e.deadAtQueue;
+						j["deadAtProcess"] = e.deadAtProcess;
+					}
+					trace.push_back(std::move(j));
+				}
+				result["trace"] = std::move(trace);
+			}
 			a_write(a_sink, result.dump().c_str());
 		}
 	}
@@ -72,11 +106,11 @@ namespace FDNG::DevBench
 		}
 
 		constexpr auto descriptor = R"({
-			"description": "FloatingDamageNG combat analytics: live DPS and finished combat sessions (per-combatant damage, healing, crits, time-to-die). action=summary omits per-session detail; action=sessions includes DPS timelines and combatant breakdowns.",
+			"description": "FloatingDamageNG combat analytics: live DPS and finished combat sessions (per-combatant damage, healing, crits, time-to-die). action=summary omits per-session detail; action=sessions includes DPS timelines and combatant breakdowns; action=trace returns the recent raw capture stream (hook payloads with dying/dead state, and HitData fields).",
 			"inputSchema": {
 				"type": "object",
 				"properties": {
-					"action": { "type": "string", "enum": ["summary", "sessions", "live"] }
+					"action": { "type": "string", "enum": ["summary", "sessions", "live", "trace"] }
 				}
 			},
 			"readOnly": true

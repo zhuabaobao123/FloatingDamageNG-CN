@@ -66,6 +66,10 @@ namespace FDNG
 
 	void NumberManager::BuildText(Number& a_number) const
 	{
+		if (a_number.custom) {
+			return;  // text was set verbatim at spawn
+		}
+
 		if (a_number.flags.perfectBlock) {
 			std::snprintf(a_number.text, sizeof(a_number.text), "%s", I18n::Get("_dll_patches.perfect_block.text", "PERFECT BLOCK"));
 			a_number.subtext[0] = '\0';
@@ -75,6 +79,12 @@ namespace FDNG
 		const auto rounded = std::max(1, static_cast<int>(std::lround(a_number.amount)));
 		char num[16]{};
 		FormatMagnitude(num, sizeof(num), rounded, Settings::GetSingleton()->abbreviateNumbers);
+		if (a_number.extraIndex != kNoExtra) {
+			const auto& extra = kExtraTable[static_cast<std::size_t>(a_number.extraIndex)];
+			std::snprintf(a_number.text, sizeof(a_number.text), "%s %s", num, I18n::Get(extra.segment, extra.segment));
+			a_number.subtext[0] = '\0';
+			return;
+		}
 		const char* prefix = "";
 		char locPrefix[20]{};
 		if (a_number.kind == DamageKind::kHealing) {
@@ -114,6 +124,16 @@ namespace FDNG
 			std::snprintf(a_number.subtext, sizeof(a_number.subtext),
 				I18n::Get("_dll_patches.subtext.amplification", "x%.1f"), a_number.ampMult);
 		}
+
+		for (std::size_t i = 0; i < kExtraTable.size(); ++i) {
+			const auto shown = ExtraShownValue(kExtraTable[i], a_number.flags, a_number.extras);
+			if (settings->extraDisplay[i] != ExtraDisplay::kInline || shown < 1) {
+				continue;
+			}
+			const auto used = std::strlen(a_number.subtext);
+			std::snprintf(a_number.subtext + used, sizeof(a_number.subtext) - used, "%s%d %s",
+				used ? " " : "", shown, I18n::Get(kExtraTable[i].segment, kExtraTable[i].segment));
+		}
 	}
 
 	void NumberManager::Spawn(const DamageEvent& a_event)
@@ -144,11 +164,15 @@ namespace FDNG
 				const float mergeWindow = a_event.kind == DamageKind::kHealing ?
 				                              std::max(settings->dotAccumulationWindow, 0.8f) :
 				                              settings->dotAccumulationWindow;
-				// Crits and locational hits stand alone; only plain numbers of
+				// Crits, DoT ticks, sneak attacks, extras and locational hits stand alone; only plain numbers of
 				// the same origin merge — without the origin check, an NPC
 				// hitting the player's target folded into the player's number.
-				if (n.kind == a_event.kind && n.origin == a_event.origin &&
+				if (!n.custom && a_event.customText[0] == '\0' &&
+					n.kind == a_event.kind && n.origin == a_event.origin &&
 					!n.flags.critical && !a_event.flags.critical &&
+					!n.flags.sneak && !a_event.flags.sneak &&
+					n.extraIndex == kNoExtra && a_event.extraIndex == kNoExtra &&
+					!n.flags.dotTick && !a_event.flags.dotTick &&
 					!n.flags.perfectBlock && !a_event.flags.perfectBlock &&
 					n.location[0] == '\0' && a_event.location[0] == '\0' &&
 					n.age < mergeWindow) {
@@ -183,7 +207,19 @@ namespace FDNG
 		n.kind = a_event.kind;
 		n.origin = a_event.origin;
 		n.flags = a_event.flags;
-		n.lifetime = settings->quadLifetimeSeconds * (a_event.flags.critical ? 1.35f : 1.0f);
+		n.extras = a_event.extras;
+		n.extraIndex = a_event.extraIndex;
+		n.lifetime = a_event.lifetimeSeconds > 0.0f ? a_event.lifetimeSeconds :
+		                                              settings->quadLifetimeSeconds * (a_event.flags.critical ? 1.35f : 1.0f);
+		n.pinned = a_event.pinned;
+		n.useColor = a_event.useColor;
+		n.colorRGB = a_event.colorRGB;
+		n.scale = a_event.scale;
+		if (a_event.customText[0] != '\0') {
+			n.custom = true;
+			std::memcpy(n.text, a_event.customText, sizeof(n.text));
+			n.text[sizeof(n.text) - 1] = '\0';
+		}
 
 		// Screen-relative basis at the target: `right` is horizontal-perp to
 		// the player's view, `up` is world Z. Rapid hits de-overlap and burst
@@ -394,7 +430,7 @@ namespace FDNG
 
 			// Follow the victim while they're loaded (moving enemies, the
 			// player mid-heal); keep the last anchor when they unload.
-			if (const auto victim = RE::TESForm::LookupByID<RE::Actor>(n.victimID); victim && victim->Is3DLoaded()) {
+			if (const auto victim = n.pinned ? nullptr : RE::TESForm::LookupByID<RE::Actor>(n.victimID); victim && victim->Is3DLoaded()) {
 				if (const auto middle = victim->GetMiddleHighProcess(); middle && middle->headNode) {
 					n.anchor = middle->headNode->world.translate;
 				}
@@ -451,7 +487,7 @@ namespace FDNG
 			ResolvedNumber resolved;
 			resolved.number = &n;
 			resolved.worldPos = n.anchor + n.spread + originShift + KinematicOffset(n);
-			resolved.scale = scaleMult * magnitudeScale;
+			resolved.scale = scaleMult * magnitudeScale * n.scale;
 			resolved.alpha = alphaMult;
 			a_out.push_back(resolved);
 		}

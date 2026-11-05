@@ -61,6 +61,11 @@ jobs:
       - name: Build
         run: xmake build --yes FloatingDamageNG
 
+      - name: Test
+        run: |
+          xmake build --yes FloatingDamageNG-tests
+          xmake test --yes
+
       - name: Stage binaries
         shell: pwsh
         run: |

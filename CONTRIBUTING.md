@@ -45,4 +45,6 @@ format.
 ## License
 
 Contributions are accepted under GPL-3.0-or-later WITH
-LicenseRef-Modding-Exception (see COPYING and EXCEPTIONS.md).
+LicenseRef-Modding-Exception (see COPYING and EXCEPTIONS.md), except
+contributions to `api/`, which are accepted under LGPL-3.0-or-later (see
+api/COPYING.LESSER).

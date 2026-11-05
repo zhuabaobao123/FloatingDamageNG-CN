@@ -142,6 +142,12 @@ pulled at build time from pinned upstream commits via the local package repo
 in `xmake-pkgs/`. Set `SkyrimVRPath`, `SkyrimVRPluginTargets`, or
 `SkyrimPluginTargets` to auto-deploy after each build.
 
+## API for other mods
+
+Other SKSE plugins can show their own popups through FloatingDamageNG and
+claim a hit so it isn't shown twice, for example a locational-damage mod
+replacing the HEADSHOT tag with its own. See [api/README.md](api/README.md).
+
 ## Credits
 
 - Display architecture based on [Floating Subtitles](https://github.com/powerof3/FloatingSubtitles)
@@ -157,3 +163,10 @@ in `xmake-pkgs/`. Set `SkyrimVRPath`, `SkyrimVRPluginTargets`, or
 
 GPL-3.0-or-later WITH LicenseRef-Modding-Exception. See [COPYING](COPYING) and
 [EXCEPTIONS.md](EXCEPTIONS.md).
+
+The client API in [api/](api/) is licensed separately under
+LGPL-3.0-or-later (see [api/COPYING.LESSER](api/COPYING.LESSER)), the same
+split imgui-vr-helper uses. A mod that copies those two files to talk to
+FloatingDamageNG is bound only by the LGPL for them, and does not have to adopt
+the GPL for its own code; changes to the API files themselves stay LGPL.
+Nothing else in this repository is covered by the LGPL.

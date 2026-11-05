@@ -3,8 +3,12 @@
 
 #pragma once
 
+#include "Capture.h"
+
 namespace FDNG
 {
+	inline constexpr std::size_t kExtraCount = 3;
+
 	// A data-driven motion path for a floating number. The built-in effects
 	// are just preset instances of this, so a custom path and a built-in run
 	// through the exact same integrator, travelling along the per-number
@@ -55,6 +59,12 @@ namespace FDNG
 		kNone = 3        // plain black outline, no origin color (don't show the source)
 	};
 
+	enum class DotDisplay : std::uint8_t
+	{
+		kPerTick = 0,
+		kSummed,
+	};
+
 	// Per-damage-kind metadata in DamageKind order — the single source of truth
 	// for the [PerType] INI key suffix and the menu label, so a kind's ordering
 	// and spelling live in one place instead of parallel arrays.
@@ -85,6 +95,7 @@ namespace FDNG
 		void ResetToDefaults();  // in-memory only; Save() to persist
 
 		// [CoreFilters]
+		bool showEvade{ false };
 		bool enableFloatingDamage{ true };  // master switch; the show* flags below only matter while this is on
 		bool showPlayerDamageDealt{ true };
 		bool showFollowerDamageDealt{ true };
@@ -147,9 +158,12 @@ namespace FDNG
 
 		// [Behavior]
 		bool showMitigation{ true };
+		std::array<ExtraDisplay, kExtraCount> extraDisplay{ ExtraDisplay::kInline, ExtraDisplay::kInline, ExtraDisplay::kInline };
 		float minDamageToShow{ 1.0f };
 		float minHealToShow{ 5.0f };           // accumulation threshold; filters natural regen trickle
 		float dotAccumulationWindow{ 0.35f };  // merge same victim+type events younger than this
+		DotDisplay dotDisplay{ DotDisplay::kPerTick };
+		float dotTickSeconds{ 1.0f };
 
 		// [Style] — how a number's origin (whose fight it is) is marked. The
 		// fill color always encodes the damage kind, so origin uses a
@@ -161,12 +175,16 @@ namespace FDNG
 		std::uint32_t colorPhysical{ 0xFF3B30 };
 		std::uint32_t colorCritical{ 0xFFCC00 };
 		std::uint32_t colorBlocked{ 0x4A4A4A };
+		std::uint32_t colorEvade{ 0x8FD3FF };
 		std::uint32_t colorFire{ 0xFF9500 };
 		std::uint32_t colorFrost{ 0x5AC8FA };
 		std::uint32_t colorShock{ 0xAF52DE };
 		std::uint32_t colorPoison{ 0x4CD964 };
 		std::uint32_t colorMagic{ 0xC7B8E8 };  // untyped magic
 		std::uint32_t colorHealing{ 0x34C759 };
+		std::uint32_t colorCritBonus{ 0xFFE680 };
+		std::uint32_t colorSneakBonus{ 0x8FA8FF };
+		std::uint32_t colorReflected{ 0xE0E0E0 };
 		std::uint32_t colorMagickaDamage{ 0x4169E1 };  // royal blue
 		std::uint32_t colorStaminaDamage{ 0x2E8B57 };  // sea green
 		// Origin marker colors (relationship palette: incoming red, ally
@@ -207,7 +225,14 @@ namespace FDNG
 		bool exportJsonl{ false };          // append sessions to FloatingDamageNG-sessions.jsonl (one JSON object/line)
 		bool exportCsv{ false };            // append per-combatant rows to FloatingDamageNG-combatants.csv
 		bool enableLiveDPSWindow{ false };  // opt-in: an uninvited second HUD element surprises users
+		bool hudShowTaken{ true };
+		bool hudShowHits{ true };  // hit count, crit rate, biggest hit
+		int hudTopRows{ 3 };
+		int hudCorner{ 0 };          // 0 top-right, 1 top-left, 2 bottom-right, 3 bottom-left
+		float hudFontScale{ 1.0f };  // 0.75-2.0, multiplies the panel's text size
+		bool hudColorStats{ true };  // tint values by meaning and dealers by relationship
 		bool logFollowerPerformance{ true };
+		float hudRecapHoldSeconds{ 6.0f };
 		float postCombatWindowFadeSeconds{ 5.0f };
 		// Opt-in: registering with devbench exposes combat stats on the port
 		// the devbench host binds, so it is off unless the user enables it.
@@ -227,16 +252,49 @@ namespace FDNG
 		const char* uiLabel;
 		std::uint32_t Settings::* field;
 	};
-	inline constexpr std::array<ColorDef, 15> kColorTable{ {
+	// Per-hit extras: INI, UI, the subtext segment and the informational number all read this table.
+	struct ExtraDef
+	{
+		const char* iniKey;
+		const char* uiLabel;
+		const char* uiTip;
+		float HitExtras::* value;
+		bool HitFlags::* requiresFlag;  // null = shown whenever the value is present
+		std::uint32_t Settings::* color;
+		const char* segment;
+	};
+	inline constexpr std::array<ExtraDef, kExtraCount> kExtraTable{ {
+		{ "iCritBonusDisplay", "Crit bonus", "The flat bonus a critical hit added: a \"12 crit\" segment under the number, or its own number.",
+			&HitExtras::critBonus, &HitFlags::critical, &Settings::colorCritBonus, "crit" },
+		{ "iSneakBonusDisplay", "Sneak attack bonus", "The extra damage the sneak attack multiplier added: a \"30 sneak\" segment under the number, or its own number.",
+			&HitExtras::sneakBonus, &HitFlags::sneak, &Settings::colorSneakBonus, "sneak" },
+		{ "iReflectedDisplay", "Reflected damage", "Melee damage the target's Reflect Damage returns to the attacker: a \"12 reflected\" segment under the number, or its own number.",
+			&HitExtras::reflected, nullptr, &Settings::colorReflected, "reflected" },
+	} };
+
+	// Whole-number value of an extra for this hit; 0 when it does not apply.
+	inline int ExtraShownValue(const ExtraDef& a_extra, const HitFlags& a_flags, const HitExtras& a_extras)
+	{
+		if (a_extra.requiresFlag && !(a_flags.*a_extra.requiresFlag)) {
+			return 0;
+		}
+		return static_cast<int>(std::lround(a_extras.*a_extra.value));
+	}
+
+	inline constexpr std::array<ColorDef, 19> kColorTable{ {
 		{ "sPhysical", "Physical", &Settings::colorPhysical },
 		{ "sCritical", "Critical", &Settings::colorCritical },
 		{ "sBlocked", "Blocked", &Settings::colorBlocked },
+		{ "sEvade", "Evade", &Settings::colorEvade },
 		{ "sFire", "Fire", &Settings::colorFire },
 		{ "sFrost", "Frost", &Settings::colorFrost },
 		{ "sShock", "Shock", &Settings::colorShock },
 		{ "sPoison", "Poison", &Settings::colorPoison },
 		{ "sMagic", "Magic (untyped)", &Settings::colorMagic },
 		{ "sHealing", "Healing", &Settings::colorHealing },
+		{ "sCritBonus", "Extra: crit bonus", &Settings::colorCritBonus },
+		{ "sSneakBonus", "Extra: sneak bonus", &Settings::colorSneakBonus },
+		{ "sReflected", "Extra: reflected", &Settings::colorReflected },
 		{ "sMagickaDamage", "Magicka damage", &Settings::colorMagickaDamage },
 		{ "sStaminaDamage", "Stamina damage", &Settings::colorStaminaDamage },
 		{ "sOriginPlayer", "Marker: your hits", &Settings::colorOriginPlayer },

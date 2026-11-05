@@ -24,6 +24,16 @@ namespace FDNG::Hooks
 		// write must not be recorded again by the ModActorValue fallback.
 		thread_local int t_inEffectModify = 0;
 
+		// The effect's magnitude is pre-difficulty and pre-clamp; the nested
+		// HandleHealthDamage reports the health actually applied.
+		thread_local float t_effectAppliedHealth = 0.0f;
+		thread_local const RE::Actor* t_effectTarget = nullptr;
+
+		// Set while the engine runs a health-damage ModActorValue that was
+		// already queued, so the HandleHealthDamage it dispatches from inside
+		// is not queued a second time.
+		thread_local int t_inModActorValue = 0;
+
 		template <class TActor>
 		struct HandleHealthDamage
 		{
@@ -32,8 +42,10 @@ namespace FDNG::Hooks
 				// Effect ticks re-enter here nested inside ModifyActorValue;
 				// the effect hook already captured them with better
 				// attribution, so only genuine weapon blows queue.
-				if (t_inEffectModify == 0) {
+				if (t_inEffectModify == 0 && t_inModActorValue == 0) {
 					Capture::GetSingleton()->OnHealthDamage(a_this, a_attacker, a_damage);
+				} else if (a_this == t_effectTarget && a_damage < 0.0f) {
+					t_effectAppliedHealth += a_damage;
 				}
 				++t_inHandleHealthDamage;
 				func(a_this, a_attacker, a_damage);
@@ -61,6 +73,7 @@ namespace FDNG::Hooks
 		{
 			static void thunk(RE::ActorValueOwner* a_this, RE::ACTOR_VALUE_MODIFIER a_modifier, RE::ActorValue a_value, float a_amount)
 			{
+				bool queuedHealthDamage = false;
 				if (a_modifier == RE::ACTOR_VALUE_MODIFIER::kDamage && t_inEffectModify == 0) {
 					// Ghidra-verified (disassembly of the engine's own ModActorValue body):
 					// SE and VR share this this-adjustment; AE alone diverges - not the
@@ -74,6 +87,7 @@ namespace FDNG::Hooks
 							// Health damage that skipped HandleHealthDamage —
 							// the magic / DoT / script path.
 							Capture::GetSingleton()->OnMagicDamage(actor, -a_amount);
+							queuedHealthDamage = true;
 						}
 					} else if (a_amount < 0.0f &&
 							   ((a_value == RE::ActorValue::kMagicka && settings->showMagickaDamage) ||
@@ -81,7 +95,9 @@ namespace FDNG::Hooks
 						Capture::GetSingleton()->OnResourceDamage(actor, a_value, -a_amount);
 					}
 				}
+				t_inModActorValue += queuedHealthDamage;
 				func(a_this, a_modifier, a_value, a_amount);
+				t_inModActorValue -= queuedHealthDamage;
 			}
 			static inline REL::Relocation<decltype(thunk)> func;
 
@@ -102,10 +118,17 @@ namespace FDNG::Hooks
 		{
 			static void thunk(RE::ValueModifierEffect* a_this, RE::Actor* a_actor, float a_value, RE::ActorValue a_actorValue)
 			{
+				const auto outerTarget = t_effectTarget;
+				const float outerApplied = t_effectAppliedHealth;
+				t_effectTarget = a_actor;
+				t_effectAppliedHealth = 0.0f;
 				++t_inEffectModify;
 				func(a_this, a_actor, a_value, a_actorValue);
 				--t_inEffectModify;
-				Capture::GetSingleton()->OnEffectModify(a_this, a_actor, a_value, a_actorValue);
+				const float appliedHealth = t_effectAppliedHealth;
+				t_effectTarget = outerTarget;
+				t_effectAppliedHealth = outerApplied;
+				Capture::GetSingleton()->OnEffectModify(a_this, a_actor, a_value, a_actorValue, appliedHealth);
 
 				// Dual-value effects (vanilla frost/shock) apply their
 				// secondary AV through a DIRECT call to the base worker inside
@@ -118,7 +141,7 @@ namespace FDNG::Hooks
 				if (const auto dual = skyrim_cast<RE::DualValueModifierEffect*>(a_this)) {
 					const auto secondaryAV = dual->GetAdditionalActorValue();
 					if (secondaryAV != RE::ActorValue::kNone) {
-						Capture::GetSingleton()->OnEffectModify(a_this, a_actor, a_value * dual->GetSecondaryAVWeight(), secondaryAV);
+						Capture::GetSingleton()->OnEffectModify(a_this, a_actor, a_value * dual->GetSecondaryAVWeight(), secondaryAV, 0.0f);
 					}
 				}
 			}
@@ -158,6 +181,85 @@ namespace FDNG::Hooks
 			}
 			static inline REL::Relocation<decltype(thunk)> func;
 		};
+	}
+
+	namespace
+	{
+		constexpr std::array<const char*, 1> kSiteNames{ "melee/projectile" };
+
+		// Dodge mods wrap this call as `orig(a) || ownCheck(a)`, so we must wrap last
+		// (install late) to see their result; the engine bails before any HitData exists.
+		template <int Site>
+		struct IsGhostSite
+		{
+			static bool thunk(RE::Actor* a_victim)
+			{
+				const bool ghost = func(a_victim);
+				if (ghost && a_victim == RE::PlayerCharacter::GetSingleton()) {
+					Capture::GetSingleton()->OnEvade(kSiteNames[Site]);
+				}
+				return ghost;
+			}
+			static inline REL::Relocation<decltype(thunk)> func;
+		};
+
+		constexpr int kMeleeSite = 0;
+		constexpr std::uintptr_t kVrMeleeSiteRva = 0x631b35;
+
+		struct InstalledSite
+		{
+			std::uintptr_t site{ 0 };
+			std::uintptr_t stub{ 0 };
+		};
+		std::array<InstalledSite, 1> g_evadeSites;
+		bool g_evadeVerified{ false };
+
+		std::uintptr_t CallDestination(std::uintptr_t a_site)
+		{
+			if (*reinterpret_cast<const std::uint8_t*>(a_site) != 0xE8) {
+				return 0;
+			}
+			const auto rel = *reinterpret_cast<const std::int32_t*>(a_site + 1);
+			return a_site + 5 + rel;
+		}
+
+		template <int Site, class Thunk>
+		void InstallSite(std::uintptr_t a_site)
+		{
+			const auto bytes = reinterpret_cast<const std::uint8_t*>(a_site);
+			if (!CallDestination(a_site) || bytes[5] != 0x84 || bytes[6] != 0xC0) {
+				logger::warn("Evade hook skipped: unexpected bytes at the {} ghost-check site.", kSiteNames[Site]);
+				return;
+			}
+			stl::write_thunk_call<Thunk>(a_site);
+			g_evadeSites[Site] = { a_site, CallDestination(a_site) };
+			logger::info("Evade hook installed ({} ghost check).", kSiteNames[Site]);
+		}
+	}
+
+	void InstallEvade()
+	{
+		if (!Settings::GetSingleton()->showEvade) {
+			return;
+		}
+		// VR has one build, so it uses fixed RVAs instead of address-library IDs.
+		const bool vr = REL::Module::IsVR();
+		InstallSite<kMeleeSite, IsGhostSite<kMeleeSite>>(
+			vr ? REL::Offset(kVrMeleeSiteRva).address() : REL::Relocation<std::uintptr_t>{ RELOCATION_ID(37673, 38627), OFFSET(0x45, 0x47) }.address());
+	}
+
+	void VerifyEvade()
+	{
+		if (g_evadeVerified) {
+			return;
+		}
+		g_evadeVerified = true;
+		for (std::size_t i = 0; i < g_evadeSites.size(); ++i) {
+			const auto& s = g_evadeSites[i];
+			if (s.site && CallDestination(s.site) != s.stub) {
+				logger::warn("Evade hook: another plugin re-patched the {} ghost-check site after us; mod-granted i-frames may not show \"Evade\".", kSiteNames[i]);
+			}
+		}
 	}
 
 	void Install()

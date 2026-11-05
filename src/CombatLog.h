@@ -23,9 +23,9 @@ namespace FDNG
 	// render hook); the only other _lock contenders are read-only snapshot
 	// getters from UI/devbench threads.
 	class CombatLog :
-		public RE::BSTEventSink<RE::TESCombatEvent>,
-		public RE::BSTEventSink<RE::TESDeathEvent>,
-		public RE::BSTEventSink<RE::MenuOpenCloseEvent>
+	    public RE::BSTEventSink<RE::TESCombatEvent>,
+	    public RE::BSTEventSink<RE::TESDeathEvent>,
+	    public RE::BSTEventSink<RE::MenuOpenCloseEvent>
 	{
 	public:
 		struct LiveStats
@@ -36,6 +36,27 @@ namespace FDNG
 			float playerDamage{ 0.0f };
 			float realDPS{ 0.0f };
 			float activeDPS{ 0.0f };
+			float damageTaken{ 0.0f };
+			float biggestHit{ 0.0f };
+			int hits{ 0 };
+			int crits{ 0 };
+			int kills{ 0 };  // killing blows credited to the player
+			float healingReceived{ 0.0f };
+
+			enum class DealerRelation
+			{
+				kPlayer,
+				kFollower,
+				kHostile,
+				kOther
+			};
+			struct Dealer
+			{
+				std::string name;
+				float damage{ 0.0f };
+				DealerRelation relation{ DealerRelation::kOther };
+			};
+			std::vector<Dealer> topDealers;
 		};
 
 		// One row of a drill-down table (per damage source or per target).
@@ -110,7 +131,8 @@ namespace FDNG
 		// idle close fires. Main thread only.
 		void Flush();
 
-		LiveStats GetLiveStats();
+		// a_topRows: how many damage-dealt leaders to include (0 = none).
+		LiveStats GetLiveStats(int a_topRows = 0);
 
 		RE::BSEventNotifyControl ProcessEvent(const RE::TESCombatEvent* a_event, RE::BSTEventSource<RE::TESCombatEvent>*) override;
 		RE::BSEventNotifyControl ProcessEvent(const RE::TESDeathEvent* a_event, RE::BSTEventSource<RE::TESDeathEvent>*) override;
@@ -186,6 +208,10 @@ namespace FDNG
 		float _playerDamage{ 0.0f };
 		float _playerActiveSeconds{ 0.0f };
 		float _lastPlayerHitAt{ -1.0f };
+		float _playerTaken{ 0.0f };
+		float _playerBiggestHit{ 0.0f };
+		int _playerHits{ 0 };
+		int _playerCrits{ 0 };
 
 		std::vector<float> _dpsSamples;
 		float _lastSampleDamage{ 0.0f };

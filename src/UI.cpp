@@ -335,6 +335,8 @@ namespace FDNG::UI
 				ImGuiMCP::Checkbox(I18n::Get("ui.numbers.npc_vs_npc_damage", "NPC-vs-NPC damage"), &s->showNPCOnNPCDamage);
 				Tip(I18n::Get("ui.tips.npc_fights", "Fights you aren't part of. Rendered smaller with the NPC marker color, hidden beyond the visibility radius."));
 				ImGuiMCP::Checkbox(I18n::Get("ui.numbers.damage_you_take", "Damage you take"), &s->showPlayerDamageTaken);
+				ImGuiMCP::Checkbox(I18n::Get("ui.numbers.show_evade", "\"Evade\" on dodge i-frames"), &s->showEvade);
+				Tip(I18n::Get("ui.tips.show_evade", "Shows \"Evade\" when your dodge mod's invincibility frames negate a melee or projectile hit. Needs a restart to take effect."));
 				ImGuiMCP::Checkbox(I18n::Get("ui.numbers.player_numbers_first_person", "Player numbers in first person"), &s->showFirstPersonNumbers);
 				Tip(I18n::Get("ui.tips.first_person_pin", "Pinned to a screen spot on flat, anchored ahead of you in VR. Off = hidden while in first person."));
 				ImGuiMCP::Checkbox(I18n::Get("ui.numbers.healing", "Healing"), &s->showHealing);
@@ -344,6 +346,19 @@ namespace FDNG::UI
 				Tip(I18n::Get("ui.tips.stamina_drain_hostile", "Hostile drains only (frost spells, absorb effects). Sprinting and power attacks never show."));
 				ImGuiMCP::Checkbox(I18n::Get("ui.numbers.mitigation_subtext", "Mitigation subtext"), &s->showMitigation);
 				Tip(I18n::Get("ui.tips.mitigation_subtext", "The small \"(-45 armor)\" / \"(-20 resisted)\" line under a number."));
+				for (std::size_t i = 0; i < kExtraTable.size(); ++i) {
+					int mode = static_cast<int>(s->extraDisplay[i]);
+					const char* modes[] = {
+						I18n::Get("ui.numbers.extra_off", "Off"),
+						I18n::Get("ui.numbers.extra_inline", "Under the number"),
+						I18n::Get("ui.numbers.extra_separate", "Separate number")
+					};
+					if (ImGuiMCP::Combo(I18n::Get(kExtraTable[i].uiLabel, kExtraTable[i].uiLabel), &mode, modes, 3, -1)) {
+						s->extraDisplay[i] = static_cast<ExtraDisplay>(mode);
+					}
+					static const char* const kTipKeys[] = { "ui.tips.extra_crit", "ui.tips.extra_sneak", "ui.tips.extra_reflected" };
+					Tip(I18n::Get(kTipKeys[i], kExtraTable[i].uiTip));
+				}
 				ImGuiMCP::Checkbox(I18n::Get("ui.numbers.hit_location_tags", "Hit location tags"), &s->showHitLocation);
 				Tip(I18n::Get("ui.tips.hit_location_tags", "HEADSHOT etc. on bow/crossbow hits, from where the arrow actually struck."));
 				ImGuiMCP::SliderFloat(I18n::Get("ui.numbers.npc_visibility_radius", "NPC visibility radius (m)"), &s->maxVisibilityRadiusMeters, 5.0f, 100.0f, "%.0f", 0);
@@ -584,6 +599,19 @@ namespace FDNG::UI
 				Tip(I18n::Get("ui.tips.min_heal_to_show", "Filters natural health regen; real heals accumulate past it quickly."));
 				ImGuiMCP::SliderFloat(I18n::Get("ui.numbers.merge_window", "Merge window (s)"), &s->dotAccumulationWindow, 0.1f, 2.0f, "%.2f", 0);
 				Tip(I18n::Get("ui.tips.merge_window", "Repeat hits of the same type on one target within this window add into the existing number."));
+				int dot = static_cast<int>(s->dotDisplay);
+				const char* dotModes[] = {
+					I18n::Get("ui.numbers.dot_per_tick", "One number per tick"),
+					I18n::Get("ui.numbers.dot_summed", "Running total")
+				};
+				if (ImGuiMCP::Combo(I18n::Get("ui.numbers.damage_over_time", "Damage over time"), &dot, dotModes, 2, -1)) {
+					s->dotDisplay = static_cast<DotDisplay>(dot);
+				}
+				Tip(I18n::Get("ui.tips.dot_display", "Burning, poison and other effects that last: a number every tick interval, or one number that keeps growing."));
+				if (s->dotDisplay == DotDisplay::kPerTick) {
+					ImGuiMCP::SliderFloat(I18n::Get("ui.numbers.tick_interval", "Tick interval (s)"), &s->dotTickSeconds, 0.25f, 5.0f, "%.2f", 0);
+					Tip(I18n::Get("ui.tips.tick_interval", "How much of a damage-over-time effect each number covers."));
+				}
 			}
 
 			if (ImGuiMCP::CollapsingHeader(I18n::Get("ui.numbers.colors_and_style", "Colors and style"), 0)) {
@@ -628,7 +656,26 @@ namespace FDNG::UI
 				ImGuiMCP::Checkbox(I18n::Get("ui.analytics.export_csv", "Export CSV"), &s->exportCsv);
 				Tip(I18n::Get("ui.tips.export_csv", "One row per combatant per session to FloatingDamageNG-combatants.csv - for Excel/Sheets."));
 				ImGuiMCP::Checkbox(I18n::Get("ui.analytics.live_dps_readout", "Live DPS readout"), &s->enableLiveDPSWindow);
-				Tip(I18n::Get("ui.tips.live_dps_readout", "Small combat overlay: top-right on flat, head-locked HUD plane in VR."));
+				Tip(I18n::Get("ui.tips.live_dps_readout", "Small combat overlay on screen (head-locked HUD plane in VR): damage, time and DPS, plus the options below."));
+				ImGuiMCP::BeginDisabled(!s->enableLiveDPSWindow);
+				ImGuiMCP::Checkbox(I18n::Get("ui.analytics.hud_show_taken", "  Show damage taken"), &s->hudShowTaken);
+				ImGuiMCP::Checkbox(I18n::Get("ui.analytics.hud_show_hits", "  Show hits / crit rate / biggest hit"), &s->hudShowHits);
+				ImGuiMCP::SliderInt(I18n::Get("ui.analytics.hud_top_rows", "  Top damage dealers"), &s->hudTopRows, 0, 5, "%d", 0);
+				Tip(I18n::Get("ui.tips.hud_top_rows", "How many combatants to list by damage dealt. 0 hides the list."));
+				ImGuiMCP::SliderFloat(I18n::Get("ui.analytics.hud_recap_hold", "  Recap hold (s)"), &s->hudRecapHoldSeconds, 0.0f, 30.0f, "%.0f", 0);
+				Tip(I18n::Get("ui.tips.hud_recap_hold", "After combat ends the panel becomes a recap that stays fully visible this long, then fades out."));
+				static const char* kCorners[] = {
+					I18n::Get("ui.analytics.hud_corner_top_right", "Top right"),
+					I18n::Get("ui.analytics.hud_corner_top_left", "Top left"),
+					I18n::Get("ui.analytics.hud_corner_bottom_right", "Bottom right"),
+					I18n::Get("ui.analytics.hud_corner_bottom_left", "Bottom left")
+				};
+				ImGuiMCP::Combo(I18n::Get("ui.analytics.hud_corner", "  Screen corner"), &s->hudCorner, kCorners, 4, -1);
+				ImGuiMCP::SliderFloat(I18n::Get("ui.analytics.hud_font_scale", "  Text size"), &s->hudFontScale, 0.75f, 2.0f, "%.2fx", 0);
+				Tip(I18n::Get("ui.tips.hud_font_scale", "Scales the panel text. It uses your chosen default damage font."));
+				ImGuiMCP::Checkbox(I18n::Get("ui.analytics.hud_color_stats", "  Color-code stats"), &s->hudColorStats);
+				Tip(I18n::Get("ui.tips.hud_color_stats", "Tints damage taken, healing and kills, and colors the top dealers by you, followers and enemies."));
+				ImGuiMCP::EndDisabled();
 				ImGuiMCP::Checkbox(I18n::Get("ui.analytics.include_followers_in_reports", "Include followers in reports"), &s->logFollowerPerformance);
 				if (ImGuiMCP::Checkbox(I18n::Get("ui.analytics.devbench_integration", "devbench integration"), &s->enableDevBench) && s->enableDevBench) {
 					DevBench::Connect();

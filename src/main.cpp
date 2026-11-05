@@ -10,6 +10,7 @@
 
 #include "pch.h"
 
+#include "Api.h"
 #include "Capture.h"
 #include "CombatLog.h"
 #include "DevBench.h"
@@ -31,6 +32,7 @@ namespace
 		case SKSE::MessagingInterface::kPostLoad:
 			FDNG::I18n::Load();
 			FDNG::Settings::GetSingleton()->Load();
+			FDNG::Api::RegisterHandshake();
 			break;
 		case SKSE::MessagingInterface::kPostPostLoad:
 			FDNG::Hooks::Install();
@@ -39,6 +41,7 @@ namespace
 			FDNG::DevBench::Connect();
 			break;
 		case SKSE::MessagingInterface::kDataLoaded:
+			FDNG::Hooks::InstallEvade();  // late, so it wraps dodge mods that patched the site earlier
 			FDNG::Capture::GetSingleton()->Register();
 			FDNG::CombatLog::GetSingleton()->Register();
 			FDNG::UI::Register();

@@ -46,9 +46,11 @@ namespace FDNG::Renderer
 		{
 			const auto settings = Settings::GetSingleton();
 			// Crit/blocked styling overrides the kind hue.
-			const std::uint32_t rgb = a_n.flags.critical ? settings->colorCritical :
-			                          a_n.flags.blocked  ? settings->colorBlocked :
-			                                               KindRgb(*settings, a_n.kind);
+			const std::uint32_t rgb = a_n.extraIndex != kNoExtra ? settings->*kExtraTable[static_cast<std::size_t>(a_n.extraIndex)].color :
+			                          a_n.useColor               ? a_n.colorRGB :
+			                          a_n.flags.critical         ? settings->colorCritical :
+			                          a_n.flags.blocked          ? settings->colorBlocked :
+			                                                       KindRgb(*settings, a_n.kind);
 			const auto a = static_cast<std::uint8_t>(std::clamp(a_alpha, 0.0f, 1.0f) * 255.0f);
 			return IM_COL32((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, a);
 		}
@@ -61,34 +63,112 @@ namespace FDNG::Renderer
 
 		// Small live DPS readout; lingers for the configured fade
 		// window after combat ends.
+		// Text tints for the top-dealer rows. Separate from the origin-marker
+		// palette, whose dark fills are made for outlines, not for text on a HUD.
+		constexpr std::uint32_t kDealerPlayer = 0xFFD60A;
+		constexpr std::uint32_t kDealerFollower = 0x5AC8FA;
+		constexpr std::uint32_t kDealerHostile = 0xFF6B5E;
+		constexpr std::uint32_t kDealerOther = 0xE0E0E0;
+
 		void DrawLiveDPSWindow()
 		{
 			const auto settings = Settings::GetSingleton();
 			if (!settings->enableCombatLog || !settings->enableLiveDPSWindow) {
 				return;
 			}
-			const auto stats = CombatLog::GetSingleton()->GetLiveStats();
-			if (!stats.active && stats.secondsSinceEnd > settings->postCombatWindowFadeSeconds) {
+			const auto stats = CombatLog::GetSingleton()->GetLiveStats(settings->hudTopRows);
+			const float hold = settings->hudRecapHoldSeconds;
+			const float fade = std::max(settings->postCombatWindowFadeSeconds, 0.1f);
+			const float sinceEnd = stats.secondsSinceEnd;
+			if (!stats.active && sinceEnd > hold + fade) {
 				return;
 			}
+			const bool recap = !stats.active;
 
-			const float alpha = stats.active ? 0.85f : 0.85f * (1.0f - stats.secondsSinceEnd / settings->postCombatWindowFadeSeconds);
+			const float alpha = (!recap || sinceEnd <= hold) ? 0.85f : 0.85f * (1.0f - (sinceEnd - hold) / fade);
 			const auto displaySize = ImGui::GetIO().DisplaySize;
-			ImGui::SetNextWindowPos(ImVec2(displaySize.x - 20.0f, 20.0f), ImGuiCond_Always, ImVec2(1.0f, 0.0f));
+			const bool right = settings->hudCorner == 0 || settings->hudCorner == 2;
+			const bool bottom = settings->hudCorner >= 2;
+			ImGui::SetNextWindowPos(ImVec2(right ? displaySize.x - 20.0f : 20.0f, bottom ? displaySize.y - 20.0f : 20.0f),
+				ImGuiCond_Always, ImVec2(right ? 1.0f : 0.0f, bottom ? 1.0f : 0.0f));
 			ImGui::SetNextWindowBgAlpha(alpha * 0.4f);
 			ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
 			if (ImGui::Begin("##FDNGDPS", nullptr,
 					ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoInputs |
 						ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav)) {
-				char dpsBuf1[64], dpsBuf2[64];
-				snprintf(dpsBuf1, sizeof(dpsBuf1),
-					I18n::Get("ui.stats.dps_overlay_line1", "%.0f dmg  %.1fs"),
-					stats.playerDamage, stats.sessionSeconds);
-				ImGui::Text("%s", dpsBuf1);
-				snprintf(dpsBuf2, sizeof(dpsBuf2),
-					I18n::Get("ui.stats.dps_overlay_line2", "DPS %.1f real / %.1f active"),
-					stats.realDPS, stats.activeDPS);
-				ImGui::Text("%s", dpsBuf2);
+				ImGui::SetWindowFontScale(settings->hudFontScale);
+				const bool tint = settings->hudColorStats;
+				const auto rgb = [](std::uint32_t a_rgb) {
+					return ImVec4(static_cast<float>((a_rgb >> 16) & 0xFF) / 255.0f, static_cast<float>((a_rgb >> 8) & 0xFF) / 255.0f,
+						static_cast<float>(a_rgb & 0xFF) / 255.0f, 1.0f);
+				};
+				const ImVec4 white(1.0f, 1.0f, 1.0f, 1.0f);
+				const ImVec4 labelColor = tint ? ImVec4(0.62f, 0.62f, 0.62f, 1.0f) : white;
+				const auto valueColor = [&](std::uint32_t a_rgb) { return tint ? rgb(a_rgb) : white; };
+
+				if (recap) {
+					ImGui::TextColored(valueColor(settings->colorCritical), "%s", I18n::Get("ui.hud.combat_recap", "Combat recap"));
+				}
+				if (ImGui::BeginTable("##FDNGDPSRows", 2, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoSavedSettings)) {
+					// Value cells are right-aligned so the numbers line up in one column.
+					const auto row = [&](const char* a_label, const ImVec4& a_labelColor, const ImVec4& a_valueColor, const char* a_value) {
+						ImGui::TableNextRow();
+						ImGui::TableNextColumn();
+						ImGui::TextColored(a_labelColor, "%s", a_label);
+						ImGui::TableNextColumn();
+						const float slack = ImGui::GetContentRegionAvail().x - ImGui::CalcTextSize(a_value).x;
+						if (slack > 0.0f) {
+							ImGui::SetCursorPosX(ImGui::GetCursorPosX() + slack);
+						}
+						ImGui::TextColored(a_valueColor, "%s", a_value);
+					};
+					char buf[96];
+
+					std::snprintf(buf, sizeof(buf), I18n::Get("ui.hud.damage_value", "%.0f in %.1fs"), stats.playerDamage, stats.sessionSeconds);
+					row(I18n::Get("ui.hud.damage", "Damage"), labelColor, white, buf);
+					std::snprintf(buf, sizeof(buf), I18n::Get("ui.hud.dps_value", "%.1f real / %.1f active"), stats.realDPS, stats.activeDPS);
+					row(I18n::Get("ui.hud.dps", "DPS"), labelColor, white, buf);
+					if (settings->hudShowHits && stats.hits > 0) {
+						std::snprintf(buf, sizeof(buf), I18n::Get("ui.hud.hits_value", "%d hits  %.0f%% crit  best %.0f"), stats.hits,
+							100.0f * static_cast<float>(stats.crits) / static_cast<float>(stats.hits), stats.biggestHit);
+						row(I18n::Get("ui.hud.hits", "Hits"), labelColor, valueColor(settings->colorCritical), buf);
+					}
+					if (settings->hudShowTaken) {
+						std::snprintf(buf, sizeof(buf), "%.0f", stats.damageTaken);
+						row(I18n::Get("ui.hud.taken", "Taken"), labelColor, valueColor(settings->colorPhysical), buf);
+					}
+					if (recap && stats.healingReceived > 0.0f) {
+						std::snprintf(buf, sizeof(buf), "%.0f", stats.healingReceived);
+						row(I18n::Get("ui.hud.healed", "Healed"), labelColor, valueColor(settings->colorHealing), buf);
+					}
+					if (recap && stats.kills > 0) {
+						std::snprintf(buf, sizeof(buf), "%d", stats.kills);
+						row(I18n::Get("ui.hud.kills", "Kills"), labelColor, valueColor(settings->colorCritical), buf);
+					}
+
+					int rank = 0;
+					for (const auto& dealer : stats.topDealers) {
+						std::uint32_t color = kDealerOther;
+						switch (dealer.relation) {
+						case CombatLog::LiveStats::DealerRelation::kPlayer:
+							color = kDealerPlayer;
+							break;
+						case CombatLog::LiveStats::DealerRelation::kFollower:
+							color = kDealerFollower;
+							break;
+						case CombatLog::LiveStats::DealerRelation::kHostile:
+							color = kDealerHostile;
+							break;
+						default:
+							break;
+						}
+						std::snprintf(buf, sizeof(buf), "%d. %s", ++rank, dealer.name.c_str());
+						char dmg[24];
+						std::snprintf(dmg, sizeof(dmg), "%.0f", dealer.damage);
+						row(buf, valueColor(color), white, dmg);
+					}
+					ImGui::EndTable();
+				}
 			}
 			ImGui::End();
 			ImGui::PopStyleVar();

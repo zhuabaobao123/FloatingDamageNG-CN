@@ -55,6 +55,7 @@ namespace FDNG
 		}
 
 		enableFloatingDamage = ini.GetBoolValue("CoreFilters", "bEnableFloatingDamage", enableFloatingDamage);
+		showEvade = ini.GetBoolValue("CoreFilters", "bShowEvade", showEvade);
 		showPlayerDamageDealt = ini.GetBoolValue("CoreFilters", "bShowPlayerDamageDealt", showPlayerDamageDealt);
 		showFollowerDamageDealt = ini.GetBoolValue("CoreFilters", "bShowFollowerDamageDealt", showFollowerDamageDealt);
 		showNPCOnNPCDamage = ini.GetBoolValue("CoreFilters", "bShowNPCOnNPCDamage", showNPCOnNPCDamage);
@@ -109,9 +110,15 @@ namespace FDNG
 		}
 
 		showMitigation = ini.GetBoolValue("Behavior", "bShowMitigation", showMitigation);
+		for (std::size_t i = 0; i < kExtraTable.size(); ++i) {
+			extraDisplay[i] = static_cast<ExtraDisplay>(std::clamp<long>(
+				ini.GetLongValue("Behavior", kExtraTable[i].iniKey, std::to_underlying(extraDisplay[i])), 0, 2));
+		}
 		minDamageToShow = static_cast<float>(ini.GetDoubleValue("Behavior", "fMinDamageToShow", minDamageToShow));
 		minHealToShow = static_cast<float>(ini.GetDoubleValue("Behavior", "fMinHealToShow", minHealToShow));
 		dotAccumulationWindow = static_cast<float>(ini.GetDoubleValue("Behavior", "fDotAccumulationWindow", dotAccumulationWindow));
+		dotDisplay = static_cast<DotDisplay>(std::clamp<long>(ini.GetLongValue("Behavior", "iDotDisplay", std::to_underlying(dotDisplay)), 0, 1));
+		dotTickSeconds = std::clamp(static_cast<float>(ini.GetDoubleValue("Behavior", "fDotTickSeconds", dotTickSeconds)), 0.25f, 5.0f);
 
 		originStyle = static_cast<OriginStyle>(std::clamp<long>(ini.GetLongValue("Style", "iOriginStyle", std::to_underlying(originStyle)), 0, 3));
 		styleThickness = std::clamp(static_cast<float>(ini.GetDoubleValue("Style", "fStyleThickness", styleThickness)), 0.5f, 6.0f);
@@ -153,7 +160,14 @@ namespace FDNG
 		exportJsonl = ini.GetBoolValue("Analytics", "bExportJsonl", exportJsonl);
 		exportCsv = ini.GetBoolValue("Analytics", "bExportCsv", exportCsv);
 		enableLiveDPSWindow = ini.GetBoolValue("Analytics", "bEnableLiveDPSWindow", enableLiveDPSWindow);
+		hudShowTaken = ini.GetBoolValue("Analytics", "bHudShowTaken", hudShowTaken);
+		hudShowHits = ini.GetBoolValue("Analytics", "bHudShowHits", hudShowHits);
+		hudTopRows = std::clamp(static_cast<int>(ini.GetLongValue("Analytics", "iHudTopRows", hudTopRows)), 0, 5);
+		hudCorner = std::clamp(static_cast<int>(ini.GetLongValue("Analytics", "iHudCorner", hudCorner)), 0, 3);
+		hudFontScale = std::clamp(static_cast<float>(ini.GetDoubleValue("Analytics", "fHudFontScale", hudFontScale)), 0.75f, 2.0f);
+		hudColorStats = ini.GetBoolValue("Analytics", "bHudColorStats", hudColorStats);
 		logFollowerPerformance = ini.GetBoolValue("Analytics", "bLogFollowerPerformance", logFollowerPerformance);
+		hudRecapHoldSeconds = std::clamp(static_cast<float>(ini.GetDoubleValue("Analytics", "fHudRecapHoldSeconds", hudRecapHoldSeconds)), 0.0f, 60.0f);
 		postCombatWindowFadeSeconds = std::clamp(static_cast<float>(ini.GetDoubleValue("Analytics", "fPostCombatWindowFadeSeconds", postCombatWindowFadeSeconds)), 0.5f, 30.0f);
 		enableDevBench = ini.GetBoolValue("Analytics", "bEnableDevBench", enableDevBench);
 
@@ -195,6 +209,7 @@ namespace FDNG
 		}
 
 		ini.SetBoolValue("CoreFilters", "bEnableFloatingDamage", enableFloatingDamage);
+		ini.SetBoolValue("CoreFilters", "bShowEvade", showEvade);
 		ini.SetBoolValue("CoreFilters", "bShowPlayerDamageDealt", showPlayerDamageDealt);
 		ini.SetBoolValue("CoreFilters", "bShowFollowerDamageDealt", showFollowerDamageDealt);
 		ini.SetBoolValue("CoreFilters", "bShowNPCOnNPCDamage", showNPCOnNPCDamage);
@@ -251,16 +266,28 @@ namespace FDNG
 		}
 
 		ini.SetBoolValue("Behavior", "bShowMitigation", showMitigation);
+		for (std::size_t i = 0; i < kExtraTable.size(); ++i) {
+			ini.SetLongValue("Behavior", kExtraTable[i].iniKey, std::to_underlying(extraDisplay[i]));
+		}
 		ini.SetDoubleValue("Behavior", "fMinDamageToShow", minDamageToShow);
 		ini.SetDoubleValue("Behavior", "fMinHealToShow", minHealToShow);
 		ini.SetDoubleValue("Behavior", "fDotAccumulationWindow", dotAccumulationWindow);
+		ini.SetLongValue("Behavior", "iDotDisplay", std::to_underlying(dotDisplay));
+		ini.SetDoubleValue("Behavior", "fDotTickSeconds", dotTickSeconds);
 
 		ini.SetBoolValue("Analytics", "bEnableCombatLog", enableCombatLog);
 		ini.SetBoolValue("Analytics", "bWriteLogToDisk", writeLogToDisk);
 		ini.SetBoolValue("Analytics", "bExportJsonl", exportJsonl);
 		ini.SetBoolValue("Analytics", "bExportCsv", exportCsv);
 		ini.SetBoolValue("Analytics", "bEnableLiveDPSWindow", enableLiveDPSWindow);
+		ini.SetBoolValue("Analytics", "bHudShowTaken", hudShowTaken);
+		ini.SetBoolValue("Analytics", "bHudShowHits", hudShowHits);
+		ini.SetLongValue("Analytics", "iHudTopRows", hudTopRows);
+		ini.SetLongValue("Analytics", "iHudCorner", hudCorner);
+		ini.SetDoubleValue("Analytics", "fHudFontScale", hudFontScale);
+		ini.SetBoolValue("Analytics", "bHudColorStats", hudColorStats);
 		ini.SetBoolValue("Analytics", "bLogFollowerPerformance", logFollowerPerformance);
+		ini.SetDoubleValue("Analytics", "fHudRecapHoldSeconds", hudRecapHoldSeconds);
 		ini.SetDoubleValue("Analytics", "fPostCombatWindowFadeSeconds", postCombatWindowFadeSeconds);
 		ini.SetBoolValue("Analytics", "bEnableDevBench", enableDevBench);
 

@@ -21,3 +21,72 @@ permissions:
 jobs:
   build:
     uses: ./.github/workflows/_build.yaml
+
+  # Mirrors open-shaders' pr-checks prerelease: one prerelease per PR tagged
+  # v<version>-pr<N>, anchored to the PR head, with an upserted PR comment.
+  # Same-repo, non-draft PRs only: forks get a read-only token, so they keep the
+  # plain workflow artifact from the build job.
+  prerelease:
+    name: Publish PR test build
+    needs: build
+    if: >
+      github.event_name == 'pull_request' &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the prerelease and its tag
+      pull-requests: write # post the download link
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Download binaries
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: bin
+
+      - name: Assemble test archive
+        id: pkg
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^local version = "\(.*\)"$/\1/p' xmake.lua)
+          tag="v${version}-pr${PR_NUMBER}"
+          stage="FloatingDamageNG-${tag}"
+          mkdir -p "$stage/SKSE/Plugins"
+          cp bin/FloatingDamageNG.dll bin/FloatingDamageNG.pdb "$stage/SKSE/Plugins/"
+          cp -r "Skyrim/Data/SKSE/Plugins/FloatingDamageNG" "$stage/SKSE/Plugins/"
+          7z a -t7z -mx=9 "${stage}.7z" "$stage"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "archive=${stage}.7z" >> "$GITHUB_OUTPUT"
+
+      - name: Publish prerelease
+        uses: ncipollo/release-action@339a81892b84b4eeb0f6e744e4574d79d0d9b8dd # v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ steps.pkg.outputs.tag }}
+          # Anchor to the PR head: otherwise the tag lands on the base tip and
+          # joins main's history, where it could raise semantic-release's floor.
+          commit: ${{ env.HEAD_SHA }}
+          name: Test build - PR ${{ env.PR_NUMBER }}
+          artifacts: ${{ steps.pkg.outputs.archive }}
+          body: Unreleased test build of PR ${{ env.PR_NUMBER }} at ${{ env.HEAD_SHA }}. Removed when the PR closes.
+          prerelease: true
+          allowUpdates: true
+          replacesArtifacts: true
+          removeArtifacts: true
+
+      - name: Comment on PR
+        uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3
+        with:
+          mode: upsert
+          comment-tag: prerelease-build
+          message: |
+            A test build is available for this PR:
+            [Download](https://github.com/${{ github.repository }}/releases/tag/${{ steps.pkg.outputs.tag }})

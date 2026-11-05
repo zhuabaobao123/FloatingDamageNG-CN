@@ -1,0 +1,29 @@
+# Removes a PR's test build (see build.yaml) when the PR closes, merged or not.
+# Matches on the -pr<N> suffix because the version part of the tag moves
+# whenever a release lands while the PR is open.
+name: PR test build cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Delete PR test build
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Delete prerelease and tag
+        run: |
+          gh release list --limit 1000 --json tagName,isPrerelease             --jq '.[] | select(.isPrerelease) | .tagName' |
+            grep -E "^v[0-9]+\.[0-9]+\.[0-9]+-pr${PR_NUMBER}$" |
+            while read -r tag; do
+              gh release delete "$tag" --yes --cleanup-tag
+            done || true

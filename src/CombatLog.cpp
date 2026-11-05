@@ -167,6 +167,10 @@ namespace FDNG
 		_playerDamage = 0.0f;
 		_playerActiveSeconds = 0.0f;
 		_lastPlayerHitAt = -1.0f;
+		_playerTaken = 0.0f;
+		_playerBiggestHit = 0.0f;
+		_playerHits = 0;
+		_playerCrits = 0;
 		_dpsSamples.clear();
 		_lastSampleDamage = 0.0f;
 		// Discard any flag set before this session existed - the 1 Hz poll gate
@@ -201,6 +205,9 @@ namespace FDNG
 		const auto kindIdx = static_cast<std::size_t>(std::to_underlying(a_kind));
 		auto& victim = GetCombatant(a_victim);
 		victim.damageTaken += a_amount;
+		if (a_victim->IsPlayerRef()) {
+			_playerTaken += a_amount;
+		}
 		if (kindIdx < victim.takenByKind.size()) {
 			victim.takenByKind[kindIdx].total += a_amount;
 			victim.takenByKind[kindIdx].mitigated += a_mitigated;
@@ -244,6 +251,11 @@ namespace FDNG
 				_playerDamage += a_amount;
 				_playerActiveSeconds += _lastPlayerHitAt < 0.0f ? 1.0f : std::min(now - _lastPlayerHitAt, kActiveGap);
 				_lastPlayerHitAt = now;
+				_playerBiggestHit = std::max(_playerBiggestHit, a_amount);
+				++_playerHits;
+				if (a_flags.critical) {
+					++_playerCrits;
+				}
 			}
 		}
 	}
@@ -542,7 +554,7 @@ namespace FDNG
 		return { _history.begin(), _history.end() };
 	}
 
-	CombatLog::LiveStats CombatLog::GetLiveStats()
+	CombatLog::LiveStats CombatLog::GetLiveStats(int a_topRows)
 	{
 		std::scoped_lock lk{ _lock };
 		LiveStats stats;
@@ -557,6 +569,37 @@ namespace FDNG
 		const float duration = std::max(stats.sessionSeconds, 0.01f);
 		stats.realDPS = _playerDamage / duration;
 		stats.activeDPS = _playerActiveSeconds > 0.0f ? _playerDamage / _playerActiveSeconds : 0.0f;
+		stats.damageTaken = _playerTaken;
+		stats.biggestHit = _playerBiggestHit;
+		stats.hits = _playerHits;
+		stats.crits = _playerCrits;
+		constexpr RE::FormID kPlayerID = 0x14;
+		for (const auto& [id, c] : _combatants) {
+			if (id == kPlayerID) {
+				stats.healingReceived = c.healingReceived;
+			} else if (c.diedAt >= 0.0f && c.killedByID == kPlayerID) {
+				++stats.kills;
+			}
+		}
+		if (a_topRows > 0) {
+			for (const auto& [id, c] : _combatants) {
+				if (c.damageDealt > 0.0f) {
+					auto relation = LiveStats::DealerRelation::kOther;
+					if (id == kPlayerID) {
+						relation = LiveStats::DealerRelation::kPlayer;
+					} else if (c.isFollower) {
+						relation = LiveStats::DealerRelation::kFollower;
+					} else if (c.isHostileToPlayer) {
+						relation = LiveStats::DealerRelation::kHostile;
+					}
+					stats.topDealers.push_back({ c.name, c.damageDealt, relation });
+				}
+			}
+			const auto n = std::min<std::size_t>(static_cast<std::size_t>(a_topRows), stats.topDealers.size());
+			std::partial_sort(stats.topDealers.begin(), stats.topDealers.begin() + n, stats.topDealers.end(),
+				[](const auto& a, const auto& b) { return a.damage > b.damage; });
+			stats.topDealers.resize(n);
+		}
 		return stats;
 	}
 }
